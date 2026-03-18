@@ -1,0 +1,218 @@
+:root {
+  --primary: #6366f1;
+  --bg: #f1f5f9;
+  --text: #1e293b;
+  --danger: #ef4444;
+}
+
+body {
+  background-color: var(--bg);
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  direction: rtl;
+}
+
+.todo-container {
+  display: flex;
+  justify-content: center;
+  padding-top: 80px;
+  min-height: 100vh;
+}
+
+.todo-card {
+  background: white;
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logout-link {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.input-group-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.modern-input {
+  flex: 1;
+  padding: 12px 15px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  outline: none;
+  font-size: 1rem;
+}
+
+.modern-input:focus {
+  border-color: var(--primary);
+}
+
+.add-button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-btn {
+  padding: 12px;
+  width: 100%;
+}
+
+.task-list {
+  list-style: none;
+  padding: 0;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.task-text {
+  flex: 1;
+  margin-right: 15px;
+  font-size: 1.05rem;
+}
+
+.completed .task-text {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  color: var(--danger);
+}
+/* כפתור למעבר בין מצבי התחברות והרשמה */
+.logout-link {
+    background: none;
+    border: none;
+    color: var(--primary); /* הצבע הסגול שהגדרנו */
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    margin-top: 10px;
+    transition: color 0.2s ease;
+}
+
+.logout-link:hover {
+    color: #4338ca; /* סגול כהה יותר ב-Hover */
+}
+
+/* עיצוב כפתור הרשמה (ירוק כדי להבדיל מהתחברות) */
+.register-btn {
+    background-color: #10b981 !important; /* צבע ירוק מרענן */
+}
+
+.register-btn:hover {
+    background-color: #059669 !important;
+}
+
+/* אנימציה קטנה למעבר בין דפים */
+.todo-card {
+    animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* עיצוב להודעת "אין משימות" */
+.empty-state {
+    text-align: center;
+    color: #94a3b8;
+    margin-top: 30px;
+    font-style: italic;
+}
+.task-info {
+  display: flex;
+  flex-direction: column; /* שם למעלה, תאריך מתחתיו */
+  flex-grow: 1;
+  margin-right: 15px;
+}
+
+.task-date {
+  font-size: 0.75rem;
+  color: #64748b; /* אפור עדין */
+  margin-top: 4px;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  /* ... שאר ההגדרות הקיימות שלך ... */
+}
+.stats-bar {
+  background: #f1f5f9;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.progress-bg {
+  background: #e2e8f0;
+  height: 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  background: #3b82f6;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.search-input {
+  margin-bottom: 15px;
+  border-color: #cbd5e1;
+  background-color: #fafafa;
+}
+
+.task-date {
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
