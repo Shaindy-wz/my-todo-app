@@ -4,11 +4,15 @@ using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. שירותים ---
-// השארתי את ה-Connection String המדויק שלך שעובד
-var connectionString = "server=127.0.0.1;database=TodoDb;user=todo;password=A2bAiND%L7.29e!;";
+// --- 1. הגדרת מסד הנתונים ---
+// כאן שמתי את מחרוזת החיבור של Clever Cloud ששלחת לי
+var connectionString = "server=b6hiidir7yoggurpa6jd-mysql.services.clever-cloud.com;database=b6hiidir7yoggurpa6jd;user=ugu0do5xka3k4qsf;password=m14AwwOjxZPOaAAC41nB;port=3306";
+
+// הגדרת גרסה ידנית כדי למנוע קריסות בחיבור ראשוני
+var serverVersion = new MySqlServerVersion(new Version(8, 0, 31)); 
+
 builder.Services.AddDbContext<ToDoDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
+    options.UseMySql(connectionString, serverVersion)
 );
 
 builder.Services.AddCors(options =>
@@ -22,41 +26,36 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // --- 2. Middleware ---
-app.Urls.Add("http://localhost:5232");
+// שים לב: מחקנו את השורה של localhost כי היא גורמת לשגיאה ב-Render
 app.UseCors();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// עדכון בסיס נתונים ויצירת משתמשים
+// עדכון אוטומטי של בסיס הנתונים (Migrations/Tables)
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ToDoDbContext>();
     try
     {
-        // הוספת עמודת DueDate אם לא קיימת
+        // הוספת עמודות אם הן חסרות
         try { context.Database.ExecuteSqlRaw("ALTER TABLE items ADD DueDate DATETIME NULL;"); } catch { }
-
-        // הוספת עמודת UserId אם לא קיימת - חשוב מאוד לסינון!
         try { context.Database.ExecuteSqlRaw("ALTER TABLE items ADD UserId INT NOT NULL DEFAULT 1;"); } catch { }
 
-        Console.WriteLine("✅ Database schema is up to date.");
+        if (context.Database.CanConnect() && !context.Users.Any())
+        {
+            var hashedPassword = BCrypt.Net.BCrypt.HashPassword("123");
+            context.Users.Add(new User { Username = "admin", Password = hashedPassword });
+            context.SaveChanges();
+            Console.WriteLine("✅ Admin user created.");
+        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine("ℹ️ Database update note: " + ex.Message);
-    }
-
-    if (context.Database.CanConnect() && !context.Users.Any())
-    {
-        var hashedPassword = BCrypt.Net.BCrypt.HashPassword("123");
-        context.Users.Add(new User { Username = "admin", Password = hashedPassword });
-        context.SaveChanges();
-        Console.WriteLine("✅ Admin user created.");
+        Console.WriteLine("ℹ️ Database Initialization Note: " + ex.Message);
     }
 }
 
-// --- 3. פונקציית עזר לבדיקת Token ושליפת ה-ID של המשתמש ---
-// הפונקציה מחזירה את ה-ID של המשתמש מתוך ה-Token (למשל מ-"user-token-5" היא תוציא 5)
+// --- 3. פונקציית עזר לטוקן ---
 int? GetUserIdFromToken(HttpContext context)
 {
     var authHeader = context.Request.Headers["Authorization"].ToString();
@@ -70,84 +69,57 @@ int? GetUserIdFromToken(HttpContext context)
     return null;
 }
 
-// --- 4. נתיבים (Routes) ---
+// --- 4. נתיבים (API Routes) ---
 
-// כניסה (Login)
 app.MapPost("/login", async (ToDoDbContext context, User user) => {
     var dbUser = await context.Users.FirstOrDefaultAsync(u => u.Username == user.Username);
     if (dbUser == null || !BCrypt.Net.BCrypt.Verify(user.Password, dbUser.Password))
         return Results.Unauthorized();
-
-    // מחזיר טוקן שמכיל את ה-ID של המשתמש
     return Results.Ok(new { token = "user-token-" + dbUser.Id });
 });
 
-// הרשמה (Register)
 app.MapPost("/register", async (ToDoDbContext context, User newUser) => {
     if (await context.Users.AnyAsync(u => u.Username == newUser.Username))
         return Results.BadRequest("User already exists");
-
     newUser.Password = BCrypt.Net.BCrypt.HashPassword(newUser.Password);
     context.Users.Add(newUser);
     await context.SaveChangesAsync();
     return Results.Ok(new { message = "User registered successfully" });
 });
 
-// קבלת משימות - מסונן לפי המשתמש המחובר!
 app.MapGet("/tasks", async (ToDoDbContext context, HttpContext httpContext) => {
     var userId = GetUserIdFromToken(httpContext);
     if (userId == null) return Results.Unauthorized();
-
-    var tasks = await context.Items
-        .Where(t => t.UserId == userId)
-        .ToListAsync();
-    return Results.Ok(tasks);
+    return Results.Ok(await context.Items.Where(t => t.UserId == userId).ToListAsync());
 });
 
-// הוספת משימה - שומרת את ה-UserId של מי שהוסיף
 app.MapPost("/tasks", async (ToDoDbContext context, Item item, HttpContext httpContext) => {
     var userId = GetUserIdFromToken(httpContext);
     if (userId == null) return Results.Unauthorized();
-
-    try
-    {
-        item.UserId = userId.Value; // הצמדת המשימה למשתמש המחובר
-        context.Items.Add(item);
-        await context.SaveChangesAsync();
-        return Results.Created($"/tasks/{item.Id}", item);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("❌ ERROR ADDING TASK: " + ex.Message);
-        return Results.Problem("Database Error: " + ex.Message);
-    }
+    item.UserId = userId.Value;
+    context.Items.Add(item);
+    await context.SaveChangesAsync();
+    return Results.Created($"/tasks/{item.Id}", item);
 });
 
-// מחיקת משימה - מוודא שהמשתמש מוחק רק את שלו
 app.MapDelete("/tasks/{id}", async (ToDoDbContext context, int id, HttpContext httpContext) => {
     var userId = GetUserIdFromToken(httpContext);
     if (userId == null) return Results.Unauthorized();
-
     var item = await context.Items.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
     if (item is null) return Results.NotFound();
-
     context.Items.Remove(item);
     await context.SaveChangesAsync();
     return Results.NoContent();
 });
 
-// עדכון משימה - מוודא שהמשתמש מעדכן רק את שלו
 app.MapPut("/tasks/{id}", async (ToDoDbContext context, int id, Item updatedItem, HttpContext httpContext) => {
     var userId = GetUserIdFromToken(httpContext);
     if (userId == null) return Results.Unauthorized();
-
     var item = await context.Items.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
     if (item is null) return Results.NotFound();
-
     item.Name = updatedItem.Name;
     item.IsComplete = updatedItem.IsComplete;
     item.DueDate = updatedItem.DueDate;
-
     await context.SaveChangesAsync();
     return Results.Ok(item);
 });
